@@ -16,7 +16,9 @@ def leaky_relu(x, alpha=0.01):
     # TODO: implement leaky ReLU
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    leaky_relu = tf.keras.layers.LeakyReLU(alpha)
+
+    return leaky_relu(x)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     
@@ -35,7 +37,7 @@ def sample_noise(batch_size, dim, seed=None):
     # TODO: sample and return noise
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    return tf.random.uniform((batch_size,dim),minval=-1,maxval=1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     
@@ -59,9 +61,13 @@ def discriminator(seed=None):
     # HINT: tf.keras.models.Sequential might be helpful.                         #
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Dense(256,batch_input_shape=(None,784)),
+        tf.keras.layers.LeakyReLU(alpha=0.01),
+        tf.keras.layers.Dense(256),
+        tf.keras.layers.LeakyReLU(alpha=0.01),
+        tf.keras.layers.Dense(1)
+        ])
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -88,8 +94,12 @@ def generator(noise_dim=NOISE_DIM, seed=None):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
-
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Dense(1024,activation='relu',batch_input_shape=(None,noise_dim)),
+        tf.keras.layers.Dense(1024,activation='relu'),
+        tf.keras.layers.Dense(784,activation=tf.nn.tanh)
+        ])
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -109,9 +119,10 @@ def discriminator_loss(logits_real, logits_fake):
     """
     loss = None
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    lossCalculator = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-    pass
-
+    loss = lossCalculator(tf.ones_like(logits_real),logits_real,)
+    loss += lossCalculator(tf.zeros_like(logits_fake),logits_fake)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return loss
 
@@ -128,7 +139,8 @@ def generator_loss(logits_fake):
     loss = None
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    lossCalculator = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    loss = lossCalculator(tf.ones_like(logits_fake),logits_fake)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return loss
@@ -150,7 +162,8 @@ def get_solvers(learning_rate=1e-3, beta1=0.5):
     G_solver = None
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    D_solver = tf.optimizers.Adam(learning_rate,beta1)
+    G_solver = tf.optimizers.Adam(learning_rate,beta1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return D_solver, G_solver
@@ -168,9 +181,9 @@ def ls_discriminator_loss(scores_real, scores_fake):
     """
     loss = None
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    N = scores_real.shape[0]
+    loss = 0.5*(tf.reduce_sum((scores_real-tf.ones_like(scores_real))**2) + tf.reduce_sum(scores_fake**2))
+    loss/=N
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return loss
 
@@ -186,9 +199,9 @@ def ls_generator_loss(scores_fake):
     """
     loss = None
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    N = scores_fake.shape[0]
+    loss = 0.5*(tf.reduce_sum((scores_fake-np.ones_like(scores_fake))**2))
+    loss/=N
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return loss
 
@@ -210,7 +223,20 @@ def dc_discriminator():
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.InputLayer(784),
+        tf.keras.layers.Reshape((28,28,1)),
+        tf.keras.layers.Conv2D(32,kernel_size=(5,5),strides=(1,1)),
+        tf.keras.layers.LeakyReLU(alpha=0.01),
+        tf.keras.layers.MaxPool2D(pool_size=(2,2),strides=2),
+        tf.keras.layers.Conv2D(64,kernel_size=(5,5),strides=(1,1)),
+        tf.keras.layers.LeakyReLU(alpha=0.01),
+        tf.keras.layers.MaxPool2D(pool_size=(2,2),strides=2),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(4*4*64),
+        tf.keras.layers.LeakyReLU(alpha=0.01),
+        tf.keras.layers.Dense(1)
+        ])
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -232,7 +258,18 @@ def dc_generator(noise_dim=NOISE_DIM):
     # TODO: implement architecture
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.InputLayer(noise_dim),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(1024,activation=tf.nn.relu),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dense(7*7*128,activation=tf.nn.relu),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Reshape((7,7,128)),
+        tf.keras.layers.Conv2DTranspose(64,kernel_size=(4,4),strides=(2,2),activation=tf.nn.relu,padding='SAME'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Conv2DTranspose(1,kernel_size=(4,4),strides=(2,2),activation=tf.nn.tanh,padding='SAME')
+        ])
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     return model

@@ -16,8 +16,28 @@ def tv_loss(img, tv_weight):
     # Your implementation should be vectorized and not require any loops!
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    _,H,W,_ = img.shape
 
+    y_pad = tf.zeros((1,W,3))
+    x_pad = tf.zeros((H,1,3))
+    
+    img_processed = img[0]
+
+    img_yshift = tf.concat([img_processed[1:,:,:],y_pad],0)
+    img_xshift = tf.concat([img_processed[:,1:,:],x_pad],1)
+
+    x_diff = img_processed-img_xshift
+    y_diff = img_processed-img_yshift
+    
+    x_diff = tf.concat([x_diff[:,:W-1,:],x_pad],1)
+    y_diff = tf.concat([y_diff[:H-1,:,:],y_pad],0)
+
+
+#    x_diff[:,-1,:] = np.zeros_like(x_diff[:,-1,:])
+#    y_diff[-1,:,:] = np.zeros_like(y_diff[-1,:,:])
+    loss = tv_weight*(tf.reduce_sum(x_diff**2)+tf.reduce_sum(y_diff**2))
+
+    return loss
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
 def style_loss(feats, style_layers, style_targets, style_weights):
@@ -41,9 +61,16 @@ def style_loss(feats, style_layers, style_targets, style_weights):
     # Hint: you can do this with one for loop over the style layers, and should
     # not be short code (~5 lines). You will need to use your gram_matrix function.
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    loss = 0
 
-    pass
-
+    for i,layer in enumerate(style_layers):
+        gram = gram_matrix(feats[layer])
+        target_gram = style_targets[i]
+        
+        loss += style_weights[i]*tf.math.reduce_sum((gram-target_gram)**2)
+        
+    return loss
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
 def gram_matrix(features, normalize=True):
@@ -62,7 +89,17 @@ def gram_matrix(features, normalize=True):
     """
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    _,H,W,C = tf.shape(features)
+    
+    features = tf.keras.backend.reshape(features,(H*W,C))
+    features = tf.transpose(features)#Now is of size Cx(H*W)
+
+    gram = tf.matmul(features,tf.transpose(features))
+
+    if normalize:
+        gram/= tf.cast((H*W*C),dtype=tf.float32)
+
+    return gram
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -79,9 +116,10 @@ def content_loss(content_weight, content_current, content_original):
     - scalar content loss
     """
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    loss = tf.math.reduce_sum((content_current-content_original)**2)*content_weight
 
-    pass
-
+    return loss
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
 # We provide this helper code which takes an image, a model (cnn), and returns a list of
